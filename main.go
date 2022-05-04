@@ -38,7 +38,9 @@ func readConfig() *config {
 	}
 
 	branches := readPluginEnv("CONDITIONS_BRANCHES")
-	cfg.conditions.branches = strings.Split(branches, ",")
+	if branches != "" {
+		cfg.conditions.branches = strings.Split(branches, ",")
+	}
 
 	exitCodes := readPluginEnv("CONDITIONS_EXIT_CODES")
 	if exitCodes != "" {
@@ -57,8 +59,6 @@ func readConfig() *config {
 }
 
 func evaluateConditions(buildkiteExitStatus string, buildkiteBranch string, cfg *config) bool {
-	// Check if conditions are met
-
 	if len(cfg.conditions.branches) > 0 {
 		found := false
 		for _, branch := range cfg.conditions.branches {
