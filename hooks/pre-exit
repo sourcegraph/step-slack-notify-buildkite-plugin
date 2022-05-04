@@ -5,6 +5,9 @@ set -eu
 echo "--- :slack: Posting notifications if needed"
 BK_SLACK_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 
+echo "--- showing env"
+env
+echo "--- showing env"
 pushd "$BK_SLACK_BASEDIR"
 go run main.go
 popd
