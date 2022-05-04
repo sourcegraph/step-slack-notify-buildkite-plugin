@@ -41,12 +41,14 @@ func readConfig() *config {
 	cfg.conditions.branches = strings.Split(branches, ",")
 
 	exitCodes := readPluginEnv("CONDITIONS_EXIT_CODES")
-	for _, exitCode := range strings.Split(exitCodes, ",") {
-		i, err := strconv.Atoi(exitCode)
-		if err != nil {
-			log.Fatal(err)
+	if exitCodes != "" {
+		for _, exitCode := range strings.Split(exitCodes, ",") {
+			i, err := strconv.Atoi(exitCode)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cfg.conditions.exitCodes = append(cfg.conditions.exitCodes, i)
 		}
-		cfg.conditions.exitCodes = append(cfg.conditions.exitCodes, i)
 	}
 
 	cfg.conditions.failed = readPluginEnv("CONDITIONS_FAILED") == "true"
