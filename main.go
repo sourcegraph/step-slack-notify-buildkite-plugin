@@ -24,7 +24,7 @@ type conditionsConfig struct {
 }
 
 func readPluginEnv(key string) string {
-	return os.Getenv(fmt.Sprintf("BUILDKITE_PLUGIN_BUILDKITE_SLACK_GIT_%s", key))
+	return os.Getenv(fmt.Sprintf("BUILDKITE_PLUGIN_BUILDKITE_SLACK_PLUGIN_GIT_%s", key))
 }
 
 func readConfig() *config {
