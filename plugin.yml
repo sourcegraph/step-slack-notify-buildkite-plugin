@@ -1,0 +1,21 @@
+name: Slack Notifications
+description: Step level customizable Slack notifications 
+author: https://github.com/jhchabran
+requirements: 
+  - go
+configuration:
+  properties:
+    message:
+      type: string
+    channel_name: 
+      type: string
+    conditions:
+      exit_codes: 
+        type: [number]
+      failed:
+        type: boolean
+      branches: 
+        type: [string]
+    slack_token_env_var_name:
+      type: string
+  additionalProperties: false

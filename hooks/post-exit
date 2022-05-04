@@ -1,0 +1,6 @@
+#!/bin/bash
+
+BK_SLACK_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+go run main.go
+
+
