@@ -1,4 +1,4 @@
-module github.com/sourcegraph/buildkite-slack-plugin
+module github.com/jhchabran/buildkite-slack-plugin
 
 go 1.17
 
