@@ -115,12 +115,14 @@ func main() {
 	}
 
 	api := slack.New(slackToken)
-	allChannels := []slack.Channel{}
 	var next string
-
+	var targetChannelID string
 	// List all channels so we can find the id of the one we're looking for.
+LOOP:
 	for {
-		channels, next, err := api.GetConversations(&slack.GetConversationsParameters{
+		var channels []slack.Channel
+		var err error
+		channels, next, err = api.GetConversations(&slack.GetConversationsParameters{
 			Cursor:          next,
 			ExcludeArchived: true,
 			Types:           []string{"public_channel"},
@@ -131,18 +133,22 @@ func main() {
 			log.Fatal(err)
 		}
 
-		allChannels = append(allChannels, channels...)
+		// Grab the channel ID
+		for _, channel := range channels {
+			if strings.ToLower(channel.Name) == strings.ToLower(cfg.channelName) {
+				fmt.Println("found the channel", channel.Name, channel.ID)
+				targetChannelID = channel.ID
+				break LOOP
+			}
+		}
+
 		if next == "" {
 			break
 		}
 	}
 
-	// Grab the channel ID
-	var targetChannelID string
-	for _, channel := range allChannels {
-		if strings.ToLower(channel.Name) == strings.ToLower(cfg.channelName) {
-			targetChannelID = channel.ID
-		}
+	if targetChannelID == "" {
+		log.Fatalf("aborting, could not find channel named %q", cfg.channelName)
 	}
 
 	_, _, err := api.PostMessage(
