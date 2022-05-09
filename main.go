@@ -180,9 +180,11 @@ func main() {
 	buildkiteBranch := os.Getenv("BUILDKITE_BRANCH")
 	wantMessage := evaluateConditions(buildkiteExitStatus, buildkiteBranch, cfg)
 	if !wantMessage {
+		fmt.Println("--- :slack: Custom Slack Plugin: no conditions matched, skipping,")
 		log.Println("no conditions matching, exiting.")
 		os.Exit(0)
 	}
+	fmt.Println("--- :slack: Custom Slack Plugin: sending out notification.")
 
 	api := slack.New(slackToken)
 	var next string
