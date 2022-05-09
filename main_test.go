@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
 
 func TestEvaluateConditions(t *testing.T) {
 	tests := []struct {
@@ -150,6 +154,40 @@ func TestEvaluateConditions(t *testing.T) {
 			res := evaluateConditions(test.buildkiteExitStatus, test.buildkiteBranch, &config{conditions: test.config})
 			if res != test.wantResult {
 				t.Logf("wanted result to be %v but got %v instead", test.wantResult, res)
+				t.Fail()
+			}
+		})
+	}
+}
+
+func TestParseMentions(t *testing.T) {
+	tests := []struct {
+		message  string
+		mentions []string
+	}{
+		{
+			message:  `hello <@jh>`,
+			mentions: []string{`jh`},
+		},
+		{
+			message:  `hello <@jh> and <@romeo>`,
+			mentions: []string{`jh`, `romeo`},
+		},
+		{
+			message:  `hello <@jh> \n <@romeo> and <@untitled goose>`,
+			mentions: []string{`jh`, `romeo`, `untitled goose`},
+		},
+		{
+			message:  `hello <@jh>, <@some user group>, how is it going?`,
+			mentions: []string{`jh`, `some user group`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.message, func(t *testing.T) {
+			got := parseMentions(tt.message)
+			if !reflect.DeepEqual(got, tt.mentions) {
+				t.Logf("expected to find %s in %q but got %v instead", strings.Join(tt.mentions, ","), tt.message, got)
 				t.Fail()
 			}
 		})

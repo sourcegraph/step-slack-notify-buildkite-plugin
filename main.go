@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,13 @@ type conditionsConfig struct {
 	exitCodes []int
 	failed    bool
 	branches  []string
+}
+
+type mapping struct {
+	AuthorGitHubHandle string
+	// TODO
+	// AuthorSlackID      string
+	BuildkiteStepLabel string
 }
 
 func readPluginEnv(key string) string {
@@ -98,6 +106,68 @@ func evaluateConditions(buildkiteExitStatus string, buildkiteBranch string, cfg 
 	return true
 }
 
+func parseMentions(message string) []string {
+	re := regexp.MustCompile(`<@((?:[\w- ])+)>`)
+	matches := re.FindAllStringSubmatch(message, -1)
+	var mentions []string
+	for _, m := range matches {
+		if len(m) > 1 {
+			mentions = append(mentions, m[1:]...)
+		}
+	}
+	return mentions
+}
+
+func findMentionsMappings(api *slack.Client, message string) (map[string]string, error) {
+	mentions := parseMentions(message)
+
+	m := map[string]string{}
+	users, err := api.GetUsers()
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range users {
+		for _, mention := range mentions {
+			if strings.ToLower(u.Profile.DisplayName) == strings.ToLower(mention) {
+				m[mention] = fmt.Sprintf("<@%s>", u.ID)
+			}
+		}
+	}
+	if len(m) == len(mentions) {
+		// if we found everyone, skip searching in groups.
+		return m, nil
+	}
+
+	groups, err := api.GetUserGroups()
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range groups {
+		for _, mention := range mentions {
+			if strings.ToLower(g.Name) == strings.ToLower(mention) || strings.ToLower(g.Name) == strings.ToLower(strings.ReplaceAll(mention, "-", " ")) {
+				m[mention] = fmt.Sprintf("<!subteam^%s>", g.ID)
+			}
+		}
+	}
+
+	if len(m) != len(mentions) {
+		return nil, fmt.Errorf("could not find all slack users and groups: %v", m)
+	}
+
+	return m, nil
+}
+
+func interpolateMentions(api *slack.Client, message string) (string, error) {
+	m, err := findMentionsMappings(api, message)
+	if err != nil {
+		return "", err
+	}
+	for k, v := range m {
+		message = strings.ReplaceAll(message, fmt.Sprintf("<@%s>", k), v)
+	}
+	return message, nil
+}
+
 func main() {
 	cfg := readConfig()
 
@@ -136,7 +206,6 @@ LOOP:
 		// Grab the channel ID
 		for _, channel := range channels {
 			if strings.ToLower(channel.Name) == strings.ToLower(cfg.channelName) {
-				fmt.Println("found the channel", channel.Name, channel.ID)
 				targetChannelID = channel.ID
 				break LOOP
 			}
@@ -151,9 +220,19 @@ LOOP:
 		log.Fatalf("aborting, could not find channel named %q", cfg.channelName)
 	}
 
-	_, _, err := api.PostMessage(
+	message, err := interpolateMentions(api, "hello <@jh>, <@dev-experience-support>, how is it going?")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, _, err = api.PostMessage(
 		targetChannelID,
-		slack.MsgOptionText("testing", false),
+		slack.MsgOptionText(cfg.message, false),
+		slack.MsgOptionBlocks(slack.NewSectionBlock(
+			slack.NewTextBlockObject("mrkdwn", message, false, false),
+			nil,
+			nil,
+		)),
 	)
 
 	if err != nil {
