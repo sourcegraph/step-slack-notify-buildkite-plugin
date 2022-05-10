@@ -1,6 +1,6 @@
-name: Slack Notifications
+name: Step Slack Notify
 description: Step level customizable Slack notifications 
-author: https://github.com/jhchabran
+author: https://github.com/sourcegraph
 requirements: 
   - go
 configuration:

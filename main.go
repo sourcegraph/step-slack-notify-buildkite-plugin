@@ -24,15 +24,8 @@ type conditionsConfig struct {
 	branches  []string
 }
 
-type mapping struct {
-	AuthorGitHubHandle string
-	// TODO
-	// AuthorSlackID      string
-	BuildkiteStepLabel string
-}
-
 func readPluginEnv(key string) string {
-	return os.Getenv(fmt.Sprintf("BUILDKITE_PLUGIN_BUILDKITE_SLACK_PLUGIN_GIT_%s", key))
+	return os.Getenv(fmt.Sprintf("BUILDKITE_PLUGIN_STEP_SLACK_NOTIFY_BUILDKITE_PLUGIN_GIT_%s", key))
 }
 
 func readConfig() *config {
