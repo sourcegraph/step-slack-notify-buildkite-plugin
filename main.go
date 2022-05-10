@@ -248,7 +248,7 @@ LOOP:
 	} else {
 		blocks = append(blocks, slack.NewContextBlock("context", slack.NewTextBlockObject("mrkdwn",
 			fmt.Sprintf(
-				"<%s|%s/%s: Build %s> :green_circle:",
+				"<%s|%s/%s: Build %s> :large_green_circle:",
 				os.Getenv("BUILDKITE_BUILD_URL"),
 				os.Getenv("BUILDKITE_ORGANIZATION_SLUG"),
 				os.Getenv("BUILDKITE_PIPELINE_NAME"),
