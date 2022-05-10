@@ -223,15 +223,46 @@ LOOP:
 		log.Fatal(err)
 	}
 
-	_, _, err = api.PostMessage(
-		targetChannelID,
-		slack.MsgOptionText(cfg.Message, false),
-		slack.MsgOptionBlocks(slack.NewSectionBlock(
+	blocks := []slack.Block{
+		slack.NewSectionBlock(
 			slack.NewTextBlockObject("mrkdwn", message, false, false),
 			nil,
 			nil,
-		)),
-	)
+		),
+		slack.NewDividerBlock(),
+	}
+
+	if buildkiteExitStatus != "0" {
+		blocks = append(blocks, slack.NewContextBlock("context", slack.NewTextBlockObject("mrkdwn",
+			fmt.Sprintf(
+				"*<%s|:point_right: View logs :point_left:>* <%s|%s/%s: Build %s> :red_circle:",
+				fmt.Sprintf("%s#%s", os.Getenv("BUILDKITE_BUILD_URL"), os.Getenv("BUILDKITE_JOB_ID")),
+				os.Getenv("BUILDKITE_BUILD_URL"),
+				os.Getenv("BUILDKITE_ORGANIZATION_SLUG"),
+				os.Getenv("BUILDKITE_PIPELINE_NAME"),
+				os.Getenv("BUILDKITE_BUILD_NUMBER"),
+			),
+			false,
+			false),
+		))
+	} else {
+		blocks = append(blocks, slack.NewContextBlock("context", slack.NewTextBlockObject("mrkdwn",
+			fmt.Sprintf(
+				"<%s|%s/%s: Build %s> :green_circle:",
+				os.Getenv("BUILDKITE_BUILD_URL"),
+				os.Getenv("BUILDKITE_ORGANIZATION_SLUG"),
+				os.Getenv("BUILDKITE_PIPELINE_NAME"),
+				os.Getenv("BUILDKITE_BUILD_NUMBER"),
+			),
+			false,
+			false),
+		))
+	}
+
+	_, _, err = api.PostMessage(
+		targetChannelID,
+		slack.MsgOptionText(cfg.Message, false),
+		slack.MsgOptionBlocks(blocks...))
 
 	if err != nil {
 		log.Fatal(err)
