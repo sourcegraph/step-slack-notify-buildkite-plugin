@@ -2,10 +2,6 @@
 
 set -eu
 
-echo "--- showing env"
-env | grep BUILDKITE
-echo "--- showing env"
-
 BK_SLACK_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 pushd "$BK_SLACK_BASEDIR"
 go run main.go

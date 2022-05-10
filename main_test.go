@@ -4,7 +4,21 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	qt "github.com/frankban/quicktest"
 )
+
+func TestReadConfig(t *testing.T) {
+	c := qt.New(t)
+	buildkitePlugins := `[{"https://github.com/sourcegraph/step-slack-notify-buildkite-plugin.git#main":{"message":"something mentioning \u003c@jh\u003e","conditions":{"failed":true},"channel_name":"jh-bot-testing","slack_token_env_var_name":"CI_CUSTOM_SLACK_BUILDKITE_PLUGIN_TOKEN"}}]`
+	cfg, err := readConfig(buildkitePlugins)
+	c.Assert(err, qt.IsNil)
+	c.Assert(cfg.ChannelName, qt.Equals, "jh-bot-testing")
+	c.Assert(cfg.Message, qt.Equals, "something mentioning <@jh>")
+	c.Assert(cfg.Conditions.Failed, qt.IsTrue)
+	c.Assert(cfg.Conditions.ExitCodes, qt.IsNil)
+	c.Assert(cfg.SlackTokenEnvVarName, qt.Equals, "CI_CUSTOM_SLACK_BUILDKITE_PLUGIN_TOKEN")
+}
 
 func TestEvaluateConditions(t *testing.T) {
 	tests := []struct {
@@ -27,7 +41,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				branches: []string{"main"},
+				Branches: []string{"main"},
 			},
 			wantResult: true,
 		},
@@ -36,7 +50,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				branches: []string{"foo", "main"},
+				Branches: []string{"foo", "main"},
 			},
 			wantResult: true,
 		},
@@ -45,7 +59,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "other",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				branches: []string{"main"},
+				Branches: []string{"main"},
 			},
 			wantResult: false,
 		},
@@ -54,7 +68,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "other",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				branches: []string{"main", "foo"},
+				Branches: []string{"main", "foo"},
 			},
 			wantResult: false,
 		},
@@ -63,7 +77,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "1",
 			config: conditionsConfig{
-				failed: true,
+				Failed: true,
 			},
 			wantResult: true,
 		},
@@ -72,7 +86,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				failed: true,
+				Failed: true,
 			},
 			wantResult: false,
 		},
@@ -81,7 +95,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "2",
 			config: conditionsConfig{
-				exitCodes: []int{222, 2},
+				ExitCodes: []int{222, 2},
 			},
 			wantResult: true,
 		},
@@ -90,7 +104,7 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "3",
 			config: conditionsConfig{
-				exitCodes: []int{222, 2},
+				ExitCodes: []int{222, 2},
 			},
 			wantResult: false,
 		},
@@ -99,8 +113,8 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "2",
 			config: conditionsConfig{
-				exitCodes: []int{222, 2},
-				failed:    true,
+				ExitCodes: []int{222, 2},
+				Failed:    true,
 			},
 			wantResult: true,
 		},
@@ -109,8 +123,8 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "main",
 			buildkiteExitStatus: "0",
 			config: conditionsConfig{
-				exitCodes: []int{222, 2},
-				failed:    true,
+				ExitCodes: []int{222, 2},
+				Failed:    true,
 			},
 			wantResult: false,
 		},
@@ -119,9 +133,9 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "foo",
 			buildkiteExitStatus: "6",
 			config: conditionsConfig{
-				branches:  []string{"main", "foo"},
-				exitCodes: []int{222, 6},
-				failed:    true,
+				Branches:  []string{"main", "foo"},
+				ExitCodes: []int{222, 6},
+				Failed:    true,
 			},
 			wantResult: true,
 		},
@@ -130,9 +144,9 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "foo",
 			buildkiteExitStatus: "7",
 			config: conditionsConfig{
-				branches:  []string{"main", "foo"},
-				exitCodes: []int{222, 6},
-				failed:    true,
+				Branches:  []string{"main", "foo"},
+				ExitCodes: []int{222, 6},
+				Failed:    true,
 			},
 			wantResult: false,
 		},
@@ -141,9 +155,9 @@ func TestEvaluateConditions(t *testing.T) {
 			buildkiteBranch:     "bar",
 			buildkiteExitStatus: "6",
 			config: conditionsConfig{
-				branches:  []string{"main", "foo"},
-				exitCodes: []int{222, 6},
-				failed:    true,
+				Branches:  []string{"main", "foo"},
+				ExitCodes: []int{222, 6},
+				Failed:    true,
 			},
 			wantResult: false,
 		},
@@ -151,7 +165,7 @@ func TestEvaluateConditions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res := evaluateConditions(test.buildkiteExitStatus, test.buildkiteBranch, &config{conditions: test.config})
+			res := evaluateConditions(test.buildkiteExitStatus, test.buildkiteBranch, &config{Conditions: test.config})
 			if res != test.wantResult {
 				t.Logf("wanted result to be %v but got %v instead", test.wantResult, res)
 				t.Fail()

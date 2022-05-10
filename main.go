@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -12,57 +13,56 @@ import (
 )
 
 type config struct {
-	message              string
-	channelName          string
-	slackTokenEnvVarName string
-	conditions           conditionsConfig
+	Message              string           `json:"message"`
+	ChannelName          string           `json:"channel_name"`
+	SlackTokenEnvVarName string           `json:"slack_token_env_var_name"`
+	Conditions           conditionsConfig `json:"conditions"`
 }
 
 type conditionsConfig struct {
-	exitCodes []int
-	failed    bool
-	branches  []string
+	ExitCodes []int    `json:"exit_codes"`
+	Failed    bool     `json:"failed"`
+	Branches  []string `json:"branches"`
 }
 
-func readPluginEnv(key string) string {
-	return os.Getenv(fmt.Sprintf("BUILDKITE_PLUGIN_STEP_SLACK_NOTIFY_BUILDKITE_PLUGIN_GIT_%s", key))
-}
-
-func readConfig() *config {
-	cfg := config{}
-	cfg.message = readPluginEnv("MESSAGE")
-	cfg.channelName = readPluginEnv("CHANNEL_NAME")
-	cfg.slackTokenEnvVarName = readPluginEnv("SLACK_TOKEN_ENV_VAR_NAME")
-
-	if cfg.slackTokenEnvVarName == "" {
-		cfg.slackTokenEnvVarName = "SLACK_TOKEN"
+func readConfig(buildkitePlugins string) (*config, error) {
+	plugins := []map[string]json.RawMessage{}
+	err := json.Unmarshal([]byte(buildkitePlugins), &plugins)
+	if err != nil {
+		return nil, err
 	}
 
-	branches := readPluginEnv("CONDITIONS_BRANCHES")
-	if branches != "" {
-		cfg.conditions.branches = strings.Split(branches, ",")
-	}
-
-	exitCodes := readPluginEnv("CONDITIONS_EXIT_CODES")
-	if exitCodes != "" {
-		for _, exitCode := range strings.Split(exitCodes, ",") {
-			i, err := strconv.Atoi(exitCode)
-			if err != nil {
-				log.Fatal(err)
+	var rawConfig json.RawMessage
+LOOP:
+	for _, rawPlugin := range plugins {
+		for k, v := range rawPlugin {
+			if strings.Contains(k, "sourcegraph/step-slack-notify-buildkite-plugin") {
+				rawConfig = v
+				break LOOP
 			}
-			cfg.conditions.exitCodes = append(cfg.conditions.exitCodes, i)
 		}
 	}
+	if rawConfig == nil {
+		return nil, fmt.Errorf("cannot find configuration")
+	}
 
-	cfg.conditions.failed = readPluginEnv("CONDITIONS_FAILED") == "true"
+	cfg := config{}
+	err = json.Unmarshal(rawConfig, &cfg)
+	if err != nil {
+		return nil, err
+	}
 
-	return &cfg
+	if cfg.SlackTokenEnvVarName == "" {
+		cfg.SlackTokenEnvVarName = "SLACK_TOKEN"
+	}
+
+	return &cfg, nil
 }
 
 func evaluateConditions(buildkiteExitStatus string, buildkiteBranch string, cfg *config) bool {
-	if len(cfg.conditions.branches) > 0 {
+	if len(cfg.Conditions.Branches) > 0 {
 		found := false
-		for _, branch := range cfg.conditions.branches {
+		for _, branch := range cfg.Conditions.Branches {
 			if branch == buildkiteBranch {
 				found = true
 				break
@@ -74,13 +74,13 @@ func evaluateConditions(buildkiteExitStatus string, buildkiteBranch string, cfg 
 		}
 	}
 
-	if len(cfg.conditions.exitCodes) > 0 {
+	if len(cfg.Conditions.ExitCodes) > 0 {
 		buildkiteExitCode, err := strconv.Atoi(buildkiteExitStatus)
 		if err != nil {
 			log.Fatal(err)
 		}
 		found := false
-		for _, exitCode := range cfg.conditions.exitCodes {
+		for _, exitCode := range cfg.Conditions.ExitCodes {
 			if exitCode == buildkiteExitCode {
 				found = true
 				break
@@ -92,7 +92,7 @@ func evaluateConditions(buildkiteExitStatus string, buildkiteBranch string, cfg 
 		}
 	}
 
-	if cfg.conditions.failed && buildkiteExitStatus == "0" {
+	if cfg.Conditions.Failed && buildkiteExitStatus == "0" {
 		return false
 	}
 
@@ -162,9 +162,12 @@ func interpolateMentions(api *slack.Client, message string) (string, error) {
 }
 
 func main() {
-	cfg := readConfig()
+	cfg, err := readConfig(os.Getenv("BUILDKITE_PLUGINS"))
+	if err != nil {
+		log.Fatalf("failed to read config: %q", err)
+	}
 
-	slackToken := os.Getenv(cfg.slackTokenEnvVarName)
+	slackToken := os.Getenv(cfg.SlackTokenEnvVarName)
 	if slackToken == "" {
 		log.Fatal("Blank Slack token, aborting")
 	}
@@ -200,7 +203,7 @@ LOOP:
 
 		// Grab the channel ID
 		for _, channel := range channels {
-			if strings.ToLower(channel.Name) == strings.ToLower(cfg.channelName) {
+			if strings.ToLower(channel.Name) == strings.ToLower(cfg.ChannelName) {
 				targetChannelID = channel.ID
 				break LOOP
 			}
@@ -212,7 +215,7 @@ LOOP:
 	}
 
 	if targetChannelID == "" {
-		log.Fatalf("aborting, could not find channel named %q", cfg.channelName)
+		log.Fatalf("aborting, could not find channel named %q", cfg.ChannelName)
 	}
 
 	message, err := interpolateMentions(api, "hello <@jh>, <@dev-experience-support>, how is it going?")
@@ -222,7 +225,7 @@ LOOP:
 
 	_, _, err = api.PostMessage(
 		targetChannelID,
-		slack.MsgOptionText(cfg.message, false),
+		slack.MsgOptionText(cfg.Message, false),
 		slack.MsgOptionBlocks(slack.NewSectionBlock(
 			slack.NewTextBlockObject("mrkdwn", message, false, false),
 			nil,
