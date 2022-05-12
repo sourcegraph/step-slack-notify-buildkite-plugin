@@ -218,7 +218,7 @@ LOOP:
 		log.Fatalf("aborting, could not find channel named %q", cfg.ChannelName)
 	}
 
-	message, err := interpolateMentions(api, "hello <@jh>, <@dev-experience-support>, how is it going?")
+	message, err := interpolateMentions(api, cfg.Message)
 	if err != nil {
 		log.Fatal(err)
 	}
