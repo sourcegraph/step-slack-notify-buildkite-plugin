@@ -4,5 +4,12 @@ set -eu
 
 BK_SLACK_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 pushd "$BK_SLACK_BASEDIR"
+
+# Handle cases where asdf is installed but no Go version is set
+if hash asdf 2>/dev/null && ! asdf current golang 2>/dev/null; then
+  go_version="$(asdf list golang | tail -n 1 | xargs)" # xargs acts as a strings.TrimSpace()
+  asdf local golang "$go_version"
+fi
+
 go run main.go
 popd
